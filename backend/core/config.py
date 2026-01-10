@@ -9,6 +9,7 @@ class Settings:
     JWT_SECRET = os.getenv("JWT_SECRET")
     JWT_ALGORITHM = os.getenv("JWT_ALGORITHM")
     SUPER_ADMIN_SECRET = os.getenv("SUPER_ADMIN_SECRET")
+    frontend_URL = os.getenv("Frontend_URL")
     ALLOWED_ORIGINS = os.getenv(
         "ALLOWED_ORIGINS",
         "http://localhost:3000,http://127.0.0.1:3000"

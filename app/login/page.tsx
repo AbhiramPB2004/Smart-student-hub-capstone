@@ -30,7 +30,7 @@ export default function LoginPage() {
       }
 
       // success — cookie is already set by backend
-      window.location.href = "/dashboard";
+      window.location.href = "/dashboard/superadmin";
 
     } catch (err: any) {
       setError(err.message || "Login failed");
