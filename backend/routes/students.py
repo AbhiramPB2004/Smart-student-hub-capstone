@@ -37,7 +37,6 @@ def build_password_email(name: str, token: str):
     Smart Student Hub
     """
 
-
 @router.post("/upload")
 async def upload_students(file: UploadFile = File(...)):
 
@@ -54,16 +53,31 @@ async def upload_students(file: UploadFile = File(...)):
         ws = wb.active
 
         created = 0
-        skipped = 0
         updated = 0
+        skipped = 0
         errors = []
 
         for row in ws.iter_rows(min_row=2, values_only=True):
-            name, email, regno, dept = row
+            try:
+                (
+                    name,
+                    email,
+                    regno,
+                    university,
+                    department,
+                    program,
+                    batch_year,
+                    admission_year,
+                    admission_type
+                ) = row
+            except ValueError:
+                errors.append(f"Invalid row format: {row}")
+                skipped += 1
+                continue
 
-            # Validate
-            if not email or not name:
-                errors.append(f"Missing required fields for row: {row}")
+            if not all([name, email, regno, university, department, program, batch_year]):
+                errors.append(f"Missing required fields: {row}")
+                skipped += 1
                 continue
 
             existing = await users_collection.find_one({"email": email})
@@ -71,41 +85,80 @@ async def upload_students(file: UploadFile = File(...)):
             reset_token = generate_reset_token()
             expiry = datetime.utcnow() + timedelta(hours=24)
 
+            student_doc = {
+                "name": name,
+                "email": email,
+                "register_no": regno,
+                "role": "student",
+
+                "password": None,
+                "is_active": False,
+                "created_at": datetime.utcnow(),
+                "last_login": None,
+
+                "academic": {
+                    "university": university,
+                    "department": department,
+                    "program": program,
+                    "batch_year": batch_year,
+                    "admission_year": admission_year or batch_year,
+                    "admission_type": admission_type or "regular",
+                    "current_year": None,
+                    "semester": None
+                },
+
+                "profile": {
+                    "phone": None,
+                    "dob": None,
+                    "gender": None,
+                    "blood_group": None,
+                    "address": None,
+                    "photo_url": None
+                },
+
+                "status": {
+                    "profile_completed": False,
+                    "documents_uploaded": False,
+                    "faculty_verified": False,
+                    "graduated": False,
+                    "blocked": False
+                },
+
+                "onboarding": {
+                    "reset_token": reset_token,
+                    "reset_token_exp": expiry,
+                    "email_verified": False,
+                    "onboarded_via": "excel_upload"
+                },
+
+                "activities": [],
+                "certifications": [],
+                "internships": [],
+                "projects": [],
+                "achievements": [],
+
+                "meta": {
+                    "created_by": "admin",
+                    "source": "bulk_upload",
+                    "last_updated": datetime.utcnow()
+                }
+            }
+
             if existing:
-                # Optional: update details
                 await users_collection.update_one(
                     {"_id": existing["_id"]},
-                    {"$set": {
-                        "name": name,
-                        "register_no": regno,
-                        "department": dept,
-                        "reset_token": reset_token,
-                        "reset_token_exp": expiry
-                    }}
+                    {"$set": student_doc}
                 )
                 updated += 1
             else:
-                await users_collection.insert_one({
-                    "name": name,
-                    "email": email,
-                    "register_no": regno,
-                    "department": dept,
-                    "role": "student",
-                    "password": None,
-                    "is_active": False,
-                    "reset_token": reset_token,
-                    "reset_token_exp": expiry,
-                    "created_at": datetime.utcnow()
-                })
+                await users_collection.insert_one(student_doc)
                 created += 1
 
-            # Send email
             await send_email(
                 to_email=email,
                 subject="Your Smart Student Hub Account",
                 html=build_password_email(name, reset_token)
             )
-
 
         os.remove(temp_file_path)
 
@@ -119,3 +172,4 @@ async def upload_students(file: UploadFile = File(...)):
 
     except Exception as e:
         raise HTTPException(500, f"Excel read failed: {str(e)}")
+

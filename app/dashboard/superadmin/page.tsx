@@ -41,7 +41,7 @@ export default function SuperAdminDashboard() {
             <p className="text-sm text-gray-600 mb-3">
               View and verify records
             </p>
-            <Link href="/dashboard/superadmin/students">
+            <Link href="/dashboard/superadmin/students/upload">
             <button className="bg-purple-600 text-white px-4 py-2 rounded">
               Manage Students
               </button>

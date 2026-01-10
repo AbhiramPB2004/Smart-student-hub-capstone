@@ -1,6 +1,7 @@
 from fastapi import APIRouter, HTTPException, Response , Request , Depends
 from db.collections import users_collection
 from schemas.user_schema import UserLogin
+from schemas.password_schema import SetPasswordRequest
 from core.security import verify_password, create_token
 from core.auth import COOKIE_NAME , get_current_user
 from datetime import datetime
@@ -65,30 +66,39 @@ async def get_me(request: Request):
 
 
 @router.post("/set-password")
-async def set_password(token: str, new_password: str):
+async def set_password(data: SetPasswordRequest):
 
-    user = await users_collection.find_one({"reset_token": token})
+    # Find user by nested reset token
+    user = await users_collection.find_one(
+        {"onboarding.reset_token": data.token}
+    )
 
     if not user:
         raise HTTPException(400, "Invalid token")
 
-    if user["reset_token_exp"] < datetime.utcnow():
+    # Check token expiry
+    if user["onboarding"]["reset_token_exp"] < datetime.utcnow():
         raise HTTPException(400, "Token expired")
 
-    hashed = hash_password(new_password)
+    hashed = hash_password(data.new_password)
 
+    # Update password + activate account + remove token
     await users_collection.update_one(
         {"_id": user["_id"]},
         {
             "$set": {
                 "password": hashed,
-                "is_active": True
+                "is_active": True,
+                "onboarding.email_verified": True,
+                "meta.last_updated": datetime.utcnow()
             },
             "$unset": {
-                "reset_token": "",
-                "reset_token_exp": ""
+                "onboarding.reset_token": "",
+                "onboarding.reset_token_exp": ""
             }
         }
     )
 
     return {"message": "Password set successfully"}
+
+
