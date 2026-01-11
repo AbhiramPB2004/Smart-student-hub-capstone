@@ -27,6 +27,13 @@ export default function HomePage() {
             >
               Get Started
             </a>
+
+              <a
+    href="/login/superadmin"
+    className="px-5 py-2.5 rounded-xl border border-cyan-500 text-cyan-400 font-semibold hover:bg-cyan-500/10 transition-all"
+  >
+    Register University
+  </a>
           </div>
         </div>
       </header>
