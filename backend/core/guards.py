@@ -1,6 +1,7 @@
 from fastapi import Depends, HTTPException
 from bson import ObjectId
-
+from fastapi import Depends, HTTPException
+from core.auth import get_current_user  # adjust import
 from core.auth import get_current_user
 from db.collections import super_admins_collection
 
@@ -15,26 +16,45 @@ def require_platform_admin(user: dict = Depends(get_current_user)):
     return user
 
 
-def require_super_admin(user: dict = Depends(get_current_user)):
-    if user.get("role") != "super_admin":
-        raise HTTPException(403, "Super admin access required")
+async def require_super_admin(user=Depends(get_current_user)):
+    # 👇 THIS IS THE KEY FIX
+    admin = user
+    print(user)
+    if not isinstance(admin, dict):
+        raise HTTPException(status_code=401, detail="Invalid session")
 
-    # 🔒 Fetch super admin from DB to verify status
-    admin = super_admins_collection.find_one(
-        {"_id": ObjectId(user["user_id"])},
-        {"verification.status": 1, "is_active": 1}
-    )
 
-    if not admin:
-        raise HTTPException(403, "Account not found")
+    if admin.get("role") != "super_admin":
+        raise HTTPException(status_code=403, detail="Super admin access required")
 
-    if not admin.get("is_active"):
-        raise HTTPException(403, "Account inactive")
+    return admin
 
-    if admin.get("verification", {}).get("status") != "approved":
+async def require_faculty(user=Depends(get_current_user)):
+    # Ensure user is authenticated
+    if not user:
+        raise HTTPException(status_code=401, detail="Not authenticated")
+
+    # Ensure correct role
+    if user.get("role") != "faculty":
         raise HTTPException(
-            403,
-            "University verification pending or rejected"
+            status_code=403,
+            detail="Faculty access required"
         )
+
+    # Ensure account is active
+
+
+    return user
+
+
+async def require_student(user=Depends(get_current_user)):
+    if not user:
+        raise HTTPException(401, "Not authenticated")
+
+    if user.get("role") != "student":
+        raise HTTPException(403, "Student access required")
+
+    if not user.get("is_active", True):
+        raise HTTPException(403, "Account inactive")
 
     return user

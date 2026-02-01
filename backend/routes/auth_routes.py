@@ -2,7 +2,8 @@ from fastapi import APIRouter, HTTPException, Response , Request , Depends
 from db.collections import (
     users_collection,
     platform_admins_collection,
-    super_admins_collection
+    super_admins_collection,
+    faculty_collection
 )
 from bson import ObjectId
 from schemas.user_schema import UserLogin
@@ -30,6 +31,11 @@ async def find_user_by_email(email: str):
         user["_source"] = "users"
         return user
 
+    user = await faculty_collection.find_one({"email": email})
+    if user:
+        user["_source"] = "faculty"
+        return user
+
     return None
 
 async def find_user_by_reset_token(token: str):
@@ -54,7 +60,15 @@ async def find_user_by_reset_token(token: str):
         user["_source"] = "users"
         return user
 
+    user = await faculty_collection.find_one(
+        {"onboarding.reset_token": token}
+    )
+    if user:
+        user["_source"] = "faculty"
+        return user
+
     return None
+
 
 
 
@@ -117,59 +131,44 @@ async def get_me(request: Request):
     if not user_id or not role or not source:
         raise HTTPException(401, "Invalid token")
 
-    # 🔐 PLATFORM ADMIN
-    if role == "platform_admin":
-        user = await platform_admins_collection.find_one(
-            {"_id": ObjectId(user_id)},
-            {"password": 0}
-        )
-        if not user:
-            raise HTTPException(401, "User not found")
+    # 🔑 Source → Collection mapping
+    collection_map = {
+        "platform_admins": platform_admins_collection,
+        "super_admins": super_admins_collection,
+        "users": users_collection,     # admin + student
+        "faculty": faculty_collection
+    }
 
-        return {
-            "user_id": user_id,
-            "role": role
+    collection = collection_map.get(source)
+    if collection is None:
+        raise HTTPException(401, "Invalid user source")
+
+
+    user = await collection.find_one(
+        {"_id": ObjectId(user_id)},
+        {
+            "password": 0,
+            "onboarding.reset_token": 0,
+            "onboarding.reset_token_exp": 0
         }
+    )
 
-    # 🏫 SUPER ADMIN (University Admin)
-    if role == "super_admin":
-        user = await super_admins_collection.find_one(
-            {"_id": ObjectId(user_id)},
-            {
-                "password": 0,
-                "onboarding.reset_token": 0,
-                "onboarding.reset_token_exp": 0
-            }
-        )
-        if not user:
-            raise HTTPException(401, "User not found")
+    if not user:
+        raise HTTPException(401, "User not found")
 
-        return {
-            "user_id": user_id,
-            "role": role,
-            "verification": {
-                "status": user.get("verification", {}).get("status")
-            },
-            "university": {
-                "name": user.get("university", {}).get("name")
-            }
-        }
+    # ✅ Unified response
+    return {
+        "user_id": user_id,
+        "role": role,
+        "source": source,
+        "name": user.get("name"),
+        "email": user.get("email"),
+        "permissions": user.get("permissions"),              # faculty only
+        "verification_stats": user.get("verification_stats"),# faculty only
+        "academic": user.get("academic"),                    # faculty/student
+        "status": user.get("status"),                        # ✅ REQUIRED
+    }
 
-    # 👨‍🏫 FACULTY / 🎓 STUDENT
-    if role in ["faculty", "student"]:
-        user = await users_collection.find_one(
-            {"_id": ObjectId(user_id)},
-            {"password": 0}
-        )
-        if not user:
-            raise HTTPException(401, "User not found")
-
-        return {
-            "user_id": user_id,
-            "role": role
-        }
-
-    raise HTTPException(401, "Invalid role")
 
 @router.post("/set-password")
 async def set_password(data: SetPasswordRequest):
@@ -186,7 +185,9 @@ async def set_password(data: SetPasswordRequest):
     collection_map = {
         "platform_admins": platform_admins_collection,
         "super_admins": super_admins_collection,
-        "users": users_collection
+        "users": users_collection,
+        "faculty": faculty_collection 
+        
     }
 
     await collection_map[user["_source"]].update_one(

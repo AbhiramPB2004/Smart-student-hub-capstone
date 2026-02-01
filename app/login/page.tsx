@@ -19,7 +19,7 @@ export default function LoginPage() {
       const res = await fetch(`${API_URL}/auth/login`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        credentials: "include", // REQUIRED for HttpOnly cookie
+        credentials: "include",
         body: JSON.stringify({ email, password }),
       });
 
@@ -29,7 +29,6 @@ export default function LoginPage() {
         throw new Error(data.detail || "Invalid credentials");
       }
 
-      // success — cookie is already set by backend
       window.location.href = "/dashboard/superadmin";
 
     } catch (err: any) {
@@ -40,63 +39,68 @@ export default function LoginPage() {
   };
 
   return (
-<div
-  className="min-h-screen bg-cover bg-center bg-no-repeat flex items-center justify-center px-4"
-  style={{ backgroundImage: "url('/bg.png')" }}
->
-  <div className="w-full max-w-md bg-white shadow-xl rounded-2xl p-8">
+    <div className="min-h-screen bg-white flex items-center justify-center px-4">
+      <div className="w-full max-w-sm bg-white border border-gray-200 rounded-xl p-8">
+        
+        {/* Logo */}
+        <div className="flex items-center justify-center gap-2 mb-8">
+          <div className="w-8 h-8 bg-gradient-to-r from-blue-600 to-cyan-600 rounded-lg flex items-center justify-center">
+            <span className="text-white font-bold text-sm">S</span>
+          </div>
+          <h1 className="text-xl font-semibold text-gray-900">Smart Student Hub</h1>
+        </div>
 
-    <h2 className="text-2xl font-bold text-center text-black mb-6">
-      Smart Student Hub Login
-    </h2>
+        <h2 className="text-lg font-medium text-center text-gray-900 mb-6">
+          Login to your account
+        </h2>
 
-    {error && (
-      <div className="bg-red-100 text-red-700 px-4 py-2 rounded mb-4">
-        {error}
+        {error && (
+          <div className="bg-red-50 text-red-700 text-sm px-4 py-3 rounded-lg mb-4 border border-red-200">
+            {error}
+          </div>
+        )}
+
+        <form onSubmit={handleSubmit} className="space-y-4">
+          
+          <div>
+            <label className="block text-sm text-gray-700 mb-1">Email</label>
+            <input
+              type="email"
+              className="w-full border border-gray-300 rounded-lg px-3 py-2 text-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              required
+              disabled={loading}
+            />
+          </div>
+
+          <div>
+            <label className="block text-sm text-gray-700 mb-1">Password</label>
+            <input
+              type="password"
+              className="w-full border border-gray-300 rounded-lg px-3 py-2 text-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              required
+              disabled={loading}
+            />
+          </div>
+
+          <button
+            type="submit"
+            className="w-full bg-blue-600 text-white py-2.5 rounded-lg font-medium hover:bg-blue-700 transition disabled:opacity-50 disabled:cursor-not-allowed"
+            disabled={loading}
+          >
+            {loading ? "Signing in..." : "Login"}
+          </button>
+
+        </form>
+
+        <p className="text-xs text-gray-500 text-center mt-6">
+          For authorized users only
+        </p>
+
       </div>
-    )}
-
-    <form onSubmit={handleSubmit} className="space-y-5">
-      
-      <div>
-        <label className="block text-sm text-black mb-1">Email</label>
-        <input
-          type="email"
-          className="w-full border rounded-lg px-3 py-2 text-black"
-          value={email}
-          onChange={(e) => setEmail(e.target.value)}
-          required
-          disabled={loading}
-        />
-      </div>
-
-      <div>
-        <label className="block text-sm text-black mb-1">Password</label>
-        <input
-          type="password"
-          className="w-full border rounded-lg px-3 py-2 text-black"
-          value={password}
-          onChange={(e) => setPassword(e.target.value)}
-          required
-          disabled={loading}
-        />
-      </div>
-
-      <button
-        type="submit"
-        className="w-full bg-blue-600 text-white py-2 rounded-lg font-medium hover:bg-blue-700 transition disabled:opacity-50"
-        disabled={loading}
-      >
-        {loading ? "Signing in..." : "Login"}
-      </button>
-
-    </form>
-
-    <p className="text-xs text-gray-500 text-center mt-4">
-      Authorized users only.
-    </p>
-
-  </div>
-</div>
+    </div>
   );
 }

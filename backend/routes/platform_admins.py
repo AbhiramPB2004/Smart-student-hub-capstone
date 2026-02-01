@@ -2,7 +2,7 @@ from fastapi import APIRouter, Depends, HTTPException, Query
 from datetime import datetime, timedelta
 from bson import ObjectId
 
-from db.collections import platform_admins_collection
+from db.collections import platform_admins_collection , complaints_collection
 from core.guards import require_platform_admin
 from services.token_service import generate_reset_token
 from services.email_service import send_email
@@ -93,3 +93,20 @@ async def update_platform_admin_status(
         raise HTTPException(404, "Platform admin not found")
 
     return {"message": "Status updated"}
+
+
+
+
+@router.get("/complaints")
+async def all_complaints(identity=Depends(require_platform_admin)):
+    cursor = complaints_collection.find().sort("created_at", -1)
+
+    results = []
+    async for c in cursor:
+        c["_id"] = str(c["_id"])
+        c["raised_by"] = str(c["raised_by"])
+        results.append(c)
+
+    return results
+
+

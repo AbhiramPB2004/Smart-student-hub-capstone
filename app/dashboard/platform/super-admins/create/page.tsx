@@ -24,8 +24,8 @@ export default function CreateSuperAdmin() {
   };
 
   return (
-    <div className="p-6 max-w-xl">
-      <h1 className="text-2xl font-semibold text-black mb-4">
+    <div className="p-6 max-w-xl text-white">
+      <h1 className="text-2xl font-semibold  mb-4">
         Create University Admin
       </h1>
 

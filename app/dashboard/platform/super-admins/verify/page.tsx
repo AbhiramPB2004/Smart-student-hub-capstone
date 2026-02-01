@@ -95,13 +95,13 @@ export default function VerifyUniversities() {
   }
 
   return (
-    <div className="p-6">
-      <h1 className="text-2xl font-semibold text-black mb-6">
+    <div className="p-6 text-white">
+      <h1 className="text-2xl font-semibold mb-6">
         Super Admin Verification Requests
       </h1>
 
       {requests.length === 0 && (
-        <p className="text-black">No pending requests.</p>
+        <p className="">No pending requests.</p>
       )}
 
       {requests.map(req => (

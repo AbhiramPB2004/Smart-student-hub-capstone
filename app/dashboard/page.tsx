@@ -27,8 +27,8 @@ export default function DashboardRouter() {
             router.push("/dashboard/superadmin");
             break;
 
-          case "admin":
-            router.push("/dashboard/admin");
+          case "platform_admin":
+            router.push("/dashboard/platform");
             break;
 
           case "faculty":

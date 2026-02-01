@@ -43,8 +43,8 @@ export default function ManageStudentsPage() {
   };
 
   return (
-    <div className="p-6">
-      <h1 className="text-2xl font-semibold mb-4">Manage Students</h1>
+    <div className="p-6 text-black">
+      <h1 className="text-2xl font-semibold mb-4 text-white">Manage Students</h1>
 
       {/* 🔍 Filters */}
       <div className="flex flex-wrap gap-3 bg-white p-4 rounded-lg shadow mb-6">

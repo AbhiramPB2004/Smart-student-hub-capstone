@@ -9,12 +9,12 @@ export default function PlatformDashboard() {
     <Protected role="platform_admin">
       <DashboardShell title="Platform Admin Dashboard">
         <p className="text-black mb-8">
-          Manage universities, super admins, and platform governance.
+          Platform-level governance, monitoring, and institutional oversight.
         </p>
 
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
 
-          {/* Super Admins */}
+          {/* University Admins */}
           <div className="bg-white p-6 shadow rounded-xl">
             <h3 className="font-bold text-black mb-2">
               University Admins
@@ -36,7 +36,7 @@ export default function PlatformDashboard() {
             </div>
           </div>
 
-          {/* Pending Verifications */}
+          {/* University Verification */}
           <div className="bg-white p-6 shadow rounded-xl">
             <h3 className="font-bold text-black mb-2">
               University Verification
@@ -62,6 +62,22 @@ export default function PlatformDashboard() {
             <Link href="/dashboard/platform/admins">
               <button className="bg-gray-800 text-white px-4 py-2 rounded">
                 Manage Admins
+              </button>
+            </Link>
+          </div>
+
+          {/* 🔔 Complaints Oversight */}
+          <div className="bg-white p-6 shadow rounded-xl md:col-span-2">
+            <h3 className="font-bold text-black mb-2">
+              Complaints Oversight
+            </h3>
+            <p className="text-sm text-black mb-4">
+              Monitor student complaints across universities with full visibility.
+              Filter by institution, complaint type, and status.
+            </p>
+            <Link href="/dashboard/platform/complaints">
+              <button className="bg-red-600 text-white px-6 py-2 rounded">
+                View Complaints
               </button>
             </Link>
           </div>

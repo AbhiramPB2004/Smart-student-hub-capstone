@@ -45,8 +45,8 @@ export default function StudentDetailPage() {
   }
 
   return (
-    <div className="p-6">
-      <h1 className="text-2xl font-semibold mb-4">
+    <div className="p-6 text-black">
+      <h1 className="text-2xl font-semibold mb-4 text-white">
         {student.name}
       </h1>
 

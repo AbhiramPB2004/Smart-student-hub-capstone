@@ -3,7 +3,7 @@ from datetime import datetime, timedelta
 from bson import ObjectId
 from schemas.platform_super_admins import SuperAdminRequest
 from db.collections import super_admins_collection
-from db.collections import super_admin_requests_collection
+from db.collections import super_admin_requests_collection , complaints_collection
 from schemas.super_admin_schema import (
     CreateSuperAdminRequest,
     UniversityVerificationRequest
@@ -324,3 +324,29 @@ async def reject_super_admin_request(
     )
 
     return {"message": "Request rejected"}
+
+@router.patch("/complaints/{complaint_id}")
+async def update_complaint(
+    complaint_id: str,
+    payload: dict,
+    identity=Depends(require_super_admin)
+):
+    status = payload.get("status")
+    remarks = payload.get("remarks")
+
+    if status not in ["open", "in_progress", "resolved", "rejected"]:
+        raise HTTPException(400, "Invalid status")
+
+    await complaints_collection.update_one(
+        {"_id": ObjectId(complaint_id)},
+        {
+            "$set": {
+                "status": status,
+                "remarks": remarks,
+                "updated_at": datetime.utcnow()
+            }
+        }
+    )
+
+    return {"message": "Complaint updated"}
+
