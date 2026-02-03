@@ -8,62 +8,57 @@ export default function SuperAdminDashboard() {
   return (
     <Protected role="super_admin">
       <DashboardShell title="Super Admin Dashboard">
-        <p className="text-black mb-6">
+        <p className="text-gray-600 mb-8">
           Manage university users, academic operations, and grievances.
         </p>
 
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-
           {/* University Admins */}
-          <div className="bg-white p-5 shadow rounded-xl">
-            <h3 className="text-black font-bold mb-2">
+          <div className="bg-white border border-gray-200 rounded-xl p-6">
+            <h3 className="font-semibold text-gray-900 mb-2">
               University Admins
             </h3>
-            <p className="text-sm text-black mb-4">
+            <p className="text-sm text-gray-600 mb-4">
               Create & manage institution owners
             </p>
-
             <Link href="/dashboard/superadmin/admins">
-              <button className="bg-blue-600 text-white px-4 py-2 rounded w-full">
+              <button className="w-full px-4 py-2.5 bg-blue-600 text-white rounded-lg text-sm font-medium hover:bg-blue-700 transition">
                 Manage Admins
               </button>
             </Link>
           </div>
 
           {/* Faculty */}
-          <div className="bg-white p-5 shadow rounded-xl">
-            <h3 className="font-bold text-black mb-2">
+          <div className="bg-white border border-gray-200 rounded-xl p-6">
+            <h3 className="font-semibold text-gray-900 mb-2">
               Faculty
             </h3>
-            <p className="text-sm text-black mb-4">
+            <p className="text-sm text-gray-600 mb-4">
               Assign and manage academic staff
             </p>
-
             <Link href="/dashboard/superadmin/faculty">
-              <button className="bg-green-600 text-white px-4 py-2 rounded w-full">
+              <button className="w-full px-4 py-2.5 bg-green-600 text-white rounded-lg text-sm font-medium hover:bg-green-700 transition">
                 Manage Faculty
               </button>
             </Link>
           </div>
 
           {/* Students */}
-          <div className="bg-white p-5 shadow rounded-xl">
-            <h3 className="font-bold text-black mb-2">
+          <div className="bg-white border border-gray-200 rounded-xl p-6">
+            <h3 className="font-semibold text-gray-900 mb-2">
               Students
             </h3>
-            <p className="text-sm text-black mb-4">
+            <p className="text-sm text-gray-600 mb-4">
               Upload, view, and edit student records
             </p>
-
-            <div className="flex flex-col gap-3">
+            <div className="space-y-3">
               <Link href="/dashboard/superadmin/students/upload">
-                <button className="bg-purple-600 text-white px-4 py-2 rounded w-full">
+                <button className="w-full px-4 py-2.5 bg-purple-600 text-white rounded-lg text-sm font-medium hover:bg-purple-700 transition">
                   Upload Students
                 </button>
               </Link>
-
               <Link href="/dashboard/superadmin/students/manage">
-                <button className="bg-indigo-600 text-white px-4 py-2 rounded w-full">
+                <button className="w-full px-4 py-2.5 bg-indigo-600 text-white rounded-lg text-sm font-medium hover:bg-indigo-700 transition">
                   Manage / Edit Students
                 </button>
               </Link>
@@ -71,21 +66,19 @@ export default function SuperAdminDashboard() {
           </div>
 
           {/* Complaints / Grievance */}
-          <div className="bg-white p-5 shadow rounded-xl md:col-span-3">
-            <h3 className="font-bold text-black mb-2">
+          <div className="bg-white border border-gray-200 rounded-xl p-6 md:col-span-3">
+            <h3 className="font-semibold text-gray-900 mb-2">
               Student Complaints
             </h3>
-            <p className="text-sm text-black mb-4">
+            <p className="text-sm text-gray-600 mb-4">
               View and manage anonymous student grievances
             </p>
-
             <Link href="/dashboard/superadmin/complaints">
-              <button className="bg-red-600 text-white px-4 py-2 rounded">
+              <button className="px-6 py-2.5 bg-red-600 text-white rounded-lg text-sm font-medium hover:bg-red-700 transition">
                 View Complaints
               </button>
             </Link>
           </div>
-
         </div>
       </DashboardShell>
     </Protected>

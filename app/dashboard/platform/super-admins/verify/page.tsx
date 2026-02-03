@@ -6,7 +6,6 @@ type SuperAdminRequest = {
   _id: string;
   name: string;
   email: string;
-
   university_name: string;
   university_type: string;
   aishe_code: string;
@@ -14,7 +13,6 @@ type SuperAdminRequest = {
   official_email_domain: string;
   state: string;
   district: string;
-
   website?: string;
   contact_phone?: string;
   established_year?: number;
@@ -87,70 +85,124 @@ export default function VerifyUniversities() {
   };
 
   if (loading) {
-    return <p className="p-6 text-black">Loading verification requests…</p>;
+    return (
+      <div className="bg-white border border-gray-200 rounded-lg p-8 text-center">
+        <p className="text-gray-600">Loading verification requests...</p>
+      </div>
+    );
   }
 
   if (error) {
-    return <p className="p-6 text-red-600">{error}</p>;
+    return (
+      <div className="bg-red-50 border border-red-200 rounded-lg p-4">
+        <p className="text-red-700">{error}</p>
+      </div>
+    );
   }
 
   return (
-    <div className="p-6 text-white">
-      <h1 className="text-2xl font-semibold mb-6">
-        Super Admin Verification Requests
-      </h1>
+    <div className="space-y-6 bg-white">
+      <div>
+        <h1 className="text-xl font-semibold text-gray-900">
+          University Verification Requests
+        </h1>
+        <p className="text-gray-600 text-sm mt-1">
+          Review and verify university registration requests
+        </p>
+      </div>
 
-      {requests.length === 0 && (
-        <p className="">No pending requests.</p>
-      )}
-
-      {requests.map(req => (
-        <div
-          key={req._id}
-          className="bg-white p-6 mb-6 shadow rounded-xl border"
-        >
-          {/* Applicant Info */}
-          <div className="mb-4">
-            <p className="text-black font-semibold">{req.name}</p>
-            <p className="text-black text-sm">{req.email}</p>
-          </div>
-
-          {/* University Info */}
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-2 text-sm text-black mb-5">
-            <p><b>University:</b> {req.university_name}</p>
-            <p><b>Type:</b> {req.university_type}</p>
-            <p><b>AISHE Code:</b> {req.aishe_code}</p>
-            <p><b>UGC / AICTE:</b> {req.ugc_or_aicte_id}</p>
-            <p><b>Email Domain:</b> {req.official_email_domain}</p>
-            <p><b>State:</b> {req.state}</p>
-            <p><b>District:</b> {req.district}</p>
-            {req.website && <p><b>Website:</b> {req.website}</p>}
-            {req.contact_phone && <p><b>Phone:</b> {req.contact_phone}</p>}
-            {req.established_year && (
-              <p><b>Established:</b> {req.established_year}</p>
-            )}
-          </div>
-
-          {/* Actions */}
-          <div className="flex gap-3">
-            <button
-              onClick={() => approve(req._id)}
-              disabled={actionLoading === req._id}
-              className="bg-green-600 text-white px-4 py-2 rounded disabled:opacity-50"
-            >
-              Approve & Send Email
-            </button>
-
-            <button
-              onClick={() => reject(req._id)}
-              disabled={actionLoading === req._id}
-              className="bg-red-600 text-white px-4 py-2 rounded disabled:opacity-50"
-            >
-              Reject
-            </button>
-          </div>
+      {requests.length === 0 ? (
+        <div className="bg-white border border-gray-200 rounded-lg p-8 text-center">
+          <p className="text-gray-500">No pending verification requests</p>
         </div>
-      ))}
+      ) : (
+        <div className="space-y-4">
+          {requests.map(req => (
+            <div
+              key={req._id}
+              className="bg-white border border-gray-200 rounded-lg p-5"
+            >
+              {/* Applicant Info */}
+              <div className="mb-4">
+                <h3 className="font-medium text-gray-900 text-lg">{req.name}</h3>
+                <p className="text-gray-600 text-sm">{req.email}</p>
+              </div>
+
+              {/* University Info */}
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-3 text-sm mb-5">
+                <div className="space-y-2">
+                  <div>
+                    <p className="text-gray-500 text-xs font-medium">UNIVERSITY</p>
+                    <p className="text-gray-900">{req.university_name}</p>
+                  </div>
+                  <div>
+                    <p className="text-gray-500 text-xs font-medium">TYPE</p>
+                    <p className="text-gray-900">{req.university_type}</p>
+                  </div>
+                  <div>
+                    <p className="text-gray-500 text-xs font-medium">AISHE CODE</p>
+                    <p className="text-gray-900">{req.aishe_code}</p>
+                  </div>
+                  <div>
+                    <p className="text-gray-500 text-xs font-medium">UGC / AICTE ID</p>
+                    <p className="text-gray-900">{req.ugc_or_aicte_id}</p>
+                  </div>
+                </div>
+                
+                <div className="space-y-2">
+                  <div>
+                    <p className="text-gray-500 text-xs font-medium">EMAIL DOMAIN</p>
+                    <p className="text-gray-900">{req.official_email_domain}</p>
+                  </div>
+                  <div>
+                    <p className="text-gray-500 text-xs font-medium">LOCATION</p>
+                    <p className="text-gray-900">{req.district}, {req.state}</p>
+                  </div>
+                  {req.website && (
+                    <div>
+                      <p className="text-gray-500 text-xs font-medium">WEBSITE</p>
+                      <p className="text-gray-900">{req.website}</p>
+                    </div>
+                  )}
+                  {req.contact_phone && (
+                    <div>
+                      <p className="text-gray-500 text-xs font-medium">PHONE</p>
+                      <p className="text-gray-900">{req.contact_phone}</p>
+                    </div>
+                  )}
+                  {req.established_year && (
+                    <div>
+                      <p className="text-gray-500 text-xs font-medium">ESTABLISHED YEAR</p>
+                      <p className="text-gray-900">{req.established_year}</p>
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              {/* Actions */}
+              <div className="pt-4 border-t border-gray-100">
+                <div className="flex flex-col sm:flex-row gap-2">
+                  <button
+                    onClick={() => approve(req._id)}
+                    disabled={actionLoading === req._id}
+                    className="flex-1 px-4 py-2.5 bg-green-100 text-green-700 rounded-lg text-sm font-medium hover:bg-green-200 transition disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    {actionLoading === req._id ? 'Processing...' : 'Approve & Send Email'}
+                  </button>
+
+                  <button
+                    onClick={() => reject(req._id)}
+                    disabled={actionLoading === req._id}
+                    className="flex-1 px-4 py-2.5 bg-red-100 text-red-700 rounded-lg text-sm font-medium hover:bg-red-200 transition disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    {actionLoading === req._id ? 'Processing...' : 'Reject'}
+                  </button>
+                </div>
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
     </div>
   );
 }

@@ -74,107 +74,133 @@ export default function SuperAdminsList() {
   };
 
   return (
-    <div className="p-6">
-      <h1 className="text-2xl font-semibold  mb-4">
-        University Admins (Super Admins)
-      </h1>
-
-      {/* Filters */}
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-3 mb-4">
-        <input
-          placeholder="Search name"
-          className="border px-3 py-2 rounded "
-          onChange={e => setName(e.target.value)}
-        />
-
-        <input
-          placeholder="Search email"
-          className="border px-3 py-2 rounded "
-          onChange={e => setEmail(e.target.value)}
-        />
-
-        <input
-          placeholder="Search university"
-          className="border px-3 py-2 rounded"
-          onChange={e => setUniversity(e.target.value)}
-        />
-
-        <select
-          className="border px-3 py-2 rounded"
-          onChange={e => setStatus(e.target.value)}
-        >
-          <option value="">All statuses</option>
-          <option value="pending">Pending</option>
-          <option value="approved">Approved</option>
-          <option value="rejected">Rejected</option>
-        </select>
+    <div className="space-y-6 bg-white">
+      <div>
+        <h1 className="text-xl font-semibold text-gray-900">
+          University Admins (Super Admins)
+        </h1>
+        <p className="text-gray-600 text-sm mt-1">
+          Manage university administrators and their verification status
+        </p>
       </div>
 
-      <button
-        onClick={fetchAdmins}
-        className="mb-4 bg-blue-600 text-white px-4 py-2 rounded"
-      >
-        Apply Filters
-      </button>
+      {/* Filters */}
+      <div className="bg-white border border-gray-200 rounded-lg p-4">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 mb-4">
+          <input
+            placeholder="Search name"
+            className="border border-gray-300 bg-white px-3 py-2 rounded-lg text-sm text-gray-900"
+            onChange={e => setName(e.target.value)}
+          />
+
+          <input
+            placeholder="Search email"
+            className="border border-gray-300 bg-white px-3 py-2 rounded-lg text-sm text-gray-900"
+            onChange={e => setEmail(e.target.value)}
+          />
+
+          <input
+            placeholder="Search university"
+            className="border border-gray-300 bg-white px-3 py-2 rounded-lg text-sm text-gray-900"
+            onChange={e => setUniversity(e.target.value)}
+          />
+
+          <select
+            className="border border-gray-300 bg-white px-3 py-2 rounded-lg text-sm text-gray-900"
+            onChange={e => setStatus(e.target.value)}
+          >
+            <option value="">All statuses</option>
+            <option value="pending">Pending</option>
+            <option value="approved">Approved</option>
+            <option value="rejected">Rejected</option>
+          </select>
+        </div>
+
+        <button
+          onClick={fetchAdmins}
+          className="px-4 py-2 bg-blue-600 text-white rounded-lg text-sm font-medium hover:bg-blue-700 transition"
+        >
+          Apply Filters
+        </button>
+      </div>
 
       {loading ? (
-        <p className="text-black">Loading…</p>
+        <div className="bg-white border border-gray-200 rounded-lg p-8 text-center">
+          <p className="text-gray-600">Loading...</p>
+        </div>
       ) : (
-        <div className="bg-white shadow rounded-lg overflow-x-auto">
-          <table className="w-full text-sm">
-            <thead className="bg-gray-50">
-              <tr>
-                <th className="p-3 text-left">Name</th>
-                <th>Email</th>
-                <th>University</th>
-                <th>Status</th>
-                <th>Active</th>
-                <th className="text-right p-3">Actions</th>
-              </tr>
-            </thead>
-            <tbody>
-              {admins.map(a => (
-                <tr key={a._id} className="border-t">
-                  <td className="p-3 text-black">{a.name}</td>
-                  <td className="text-black">{a.email}</td>
-                  <td className="text-black">{a.university?.name || "-"}</td>
-                  <td className="capitalize text-black">
-                    {a.verification?.status || "-"}
-                  </td>
-                  <td className="text-black">
-                    {a.is_active ? "Enabled" : "Disabled"}
-                  </td>
-                  <td className="p-3 flex justify-end gap-2">
-                    <button
-                      onClick={() => toggleStatus(a._id, !a.is_active)}
-                      disabled={actionLoading === a._id}
-                      className={`px-3 py-1 rounded text-white text-xs ${
-                        a.is_active ? "bg-orange-600" : "bg-green-600"
-                      }`}
-                    >
-                      {a.is_active ? "Disable" : "Enable"}
-                    </button>
-
-                    <button
-                      onClick={() => deleteAdmin(a._id)}
-                      disabled={actionLoading === a._id}
-                      className="px-3 py-1 rounded bg-red-600 text-white text-xs"
-                    >
-                      Delete
-                    </button>
-                  </td>
-                </tr>
-              ))}
-
-              {admins.length === 0 && (
+        <div className="bg-white border border-gray-200 rounded-lg overflow-hidden">
+          <div className="overflow-x-auto">
+            <table className="w-full text-sm">
+              <thead className="bg-gray-50">
                 <tr>
-                  <td colSpan={6} className="p-4 text-center text-black">
-                    No super admins found
-                  </td>
+                  <th className="p-3 text-left text-gray-700 font-medium">Name</th>
+                  <th className="p-3 text-left text-gray-700 font-medium">Email</th>
+                  <th className="p-3 text-left text-gray-700 font-medium">University</th>
+                  <th className="p-3 text-left text-gray-700 font-medium">Status</th>
+                  <th className="p-3 text-left text-gray-700 font-medium">Active</th>
+                  <th className="p-3 text-right text-gray-700 font-medium">Actions</th>
                 </tr>
-              )}
-            </tbody>
-          </table>
+              </thead>
+              <tbody>
+                {admins.map(a => (
+                  <tr key={a._id} className="border-t border-gray-100 hover:bg-gray-50">
+                    <td className="p-3 text-gray-900">{a.name}</td>
+                    <td className="p-3 text-gray-900">{a.email}</td>
+                    <td className="p-3 text-gray-900">{a.university?.name || "-"}</td>
+                    <td className="p-3">
+                      <span className={`px-2 py-1 rounded text-xs font-medium ${
+                        a.verification?.status === 'approved' ? 'bg-green-100 text-green-800' :
+                        a.verification?.status === 'pending' ? 'bg-yellow-100 text-yellow-800' :
+                        a.verification?.status === 'rejected' ? 'bg-red-100 text-red-800' :
+                        'bg-gray-100 text-gray-800'
+                      }`}>
+                        {a.verification?.status ? a.verification.status.charAt(0).toUpperCase() + a.verification.status.slice(1) : "-"}
+                      </span>
+                    </td>
+                    <td className="p-3">
+                      <span className={`px-2 py-1 rounded text-xs font-medium ${
+                        a.is_active ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'
+                      }`}>
+                        {a.is_active ? "Enabled" : "Disabled"}
+                      </span>
+                    </td>
+                    <td className="p-3">
+                      <div className="flex justify-end gap-2">
+                        <button
+                          onClick={() => toggleStatus(a._id, !a.is_active)}
+                          disabled={actionLoading === a._id}
+                          className={`px-3 py-1.5 rounded text-sm font-medium transition ${
+                            a.is_active 
+                              ? 'bg-orange-100 text-orange-700 hover:bg-orange-200' 
+                              : 'bg-green-100 text-green-700 hover:bg-green-200'
+                          } disabled:opacity-50 disabled:cursor-not-allowed`}
+                        >
+                          {actionLoading === a._id ? 'Processing...' : a.is_active ? 'Disable' : 'Enable'}
+                        </button>
+
+                        <button
+                          onClick={() => deleteAdmin(a._id)}
+                          disabled={actionLoading === a._id}
+                          className="px-3 py-1.5 bg-red-100 text-red-700 rounded text-sm font-medium hover:bg-red-200 transition disabled:opacity-50 disabled:cursor-not-allowed"
+                        >
+                          {actionLoading === a._id ? 'Processing...' : 'Delete'}
+                        </button>
+                      </div>
+                    </td>
+                  </tr>
+                ))}
+
+                {admins.length === 0 && (
+                  <tr>
+                    <td colSpan={6} className="p-8 text-center text-gray-500">
+                      No super admins found
+                    </td>
+                  </tr>
+                )}
+              </tbody>
+            </table>
+          </div>
         </div>
       )}
     </div>

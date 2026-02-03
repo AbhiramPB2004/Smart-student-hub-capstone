@@ -1,12 +1,12 @@
 from fastapi import APIRouter, Depends, Query, HTTPException
 from typing import Optional
-from bson import ObjectId
 from core.auth import get_current_user
 from db.collections import complaints_collection
 
 router = APIRouter(
     prefix="/platformadmin",
-    tags=["Platform Admin Complaints"]
+    tags=["Platform Admin Complaints"],
+    dependencies=[]  # injected below
 )
 
 # ======================================================
@@ -17,6 +17,10 @@ async def require_platform_admin(user=Depends(get_current_user)):
     if user["role"] != "platform_admin":
         raise HTTPException(403, "Platform admin access required")
     return user
+
+
+# ✅ APPLY GUARD GLOBALLY
+router.dependencies.append(Depends(require_platform_admin))
 
 
 # ======================================================
@@ -35,7 +39,7 @@ def serialize_complaint(c):
         "created_at": c.get("created_at"),
         "updated_at": c.get("updated_at"),
 
-        # ✅ PLATFORM ADMIN CAN SEE STUDENT
+        # ✅ PLATFORM ADMIN SEES STUDENT DETAILS
         "student": {
             "id": str(c["raised_by"]) if c.get("raised_by") else None,
             "name": c.get("raised_by_name"),
@@ -48,7 +52,7 @@ def serialize_complaint(c):
 # LIST COMPLAINTS
 # ======================================================
 
-@router.get("/complaints", dependencies=[Depends(require_platform_admin)])
+@router.get("/complaints")
 async def list_complaints(
     status: Optional[str] = Query(None),
     category: Optional[str] = Query(None),
@@ -64,7 +68,7 @@ async def list_complaints(
         filters["category"] = category
 
     if university_id:
-        filters["university_id"] = university_id   # ✅ STRING MATCH
+        filters["university_id"] = university_id  # ✅ string-based university
 
     if search:
         filters["$or"] = [
@@ -76,8 +80,4 @@ async def list_complaints(
 
     cursor = complaints_collection.find(filters).sort("created_at", -1)
 
-    results = []
-    async for c in cursor:
-        results.append(serialize_complaint(c))
-
-    return results
+    return [serialize_complaint(c) async for c in cursor]

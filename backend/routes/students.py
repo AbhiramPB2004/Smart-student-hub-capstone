@@ -1,27 +1,37 @@
-from fastapi import APIRouter, UploadFile, File, HTTPException
-import tempfile
+from fastapi import APIRouter, UploadFile, File, HTTPException, Depends
+from bson import ObjectId
+from datetime import datetime, timedelta
+import tempfile, shutil, os, secrets
 
-from services.excel_service import parse_student_excel
-from services.user_service import create_temp_student
-from services.email_templates import password_setup_email
+from core.guards import require_super_admin, require_student
+from db.gridfs import fs
+from db.collections import super_admins_collection, users_collection
 from services.email_service import send_email
-from db.collections import users_collection
 from core.config import Settings
 from openpyxl import load_workbook
-import shutil
-import os
-import tempfile, shutil, os, secrets
-from datetime import datetime , timedelta
-router = APIRouter(prefix="/students", tags=["Students"])
 
-FRONTEND_URL = Settings.frontend_URL 
+# =====================================================
+# ROUTER
+# =====================================================
+
+router = APIRouter(
+    prefix="/students",
+    tags=["Students"]
+)
+
+FRONTEND_URL = Settings.frontend_URL
+
+
+# =====================================================
+# HELPERS
+# =====================================================
+
 def generate_reset_token():
     return secrets.token_urlsafe(32)
 
 
 def build_password_email(name: str, token: str):
     link = f"{FRONTEND_URL}/set-password?token={token}"
-
     return f"""
     Hi {name},
 
@@ -37,24 +47,48 @@ def build_password_email(name: str, token: str):
     Smart Student Hub
     """
 
-@router.post("/upload")
-async def upload_students(file: UploadFile = File(...)):
 
+# =====================================================
+# BULK STUDENT UPLOAD (SUPER ADMIN ONLY)
+# =====================================================
+
+@router.post(
+    "/upload",
+    dependencies=[Depends(require_super_admin)]
+)
+async def upload_students(
+    file: UploadFile = File(...),
+    admin: dict = Depends(require_super_admin)
+):
     if not file.filename.endswith(".xlsx"):
         raise HTTPException(400, "Only .xlsx files allowed")
 
-    try:
-        suffix = os.path.splitext(file.filename)[1]
-        with tempfile.NamedTemporaryFile(delete=False, suffix=suffix) as tmp:
-            shutil.copyfileobj(file.file, tmp)
-            temp_file_path = tmp.name
+    # 🔐 Resolve super admin (DB authoritative)
+    admin_id = admin.get("user_id") or admin.get("_id")
+    if not admin_id:
+        raise HTTPException(401, "Invalid admin token")
 
-        wb = load_workbook(temp_file_path)
+    super_admin = await super_admins_collection.find_one(
+        {"_id": ObjectId(admin_id), "role": "super_admin"},
+        {"university.aishe_code": 1}
+    )
+
+    if not super_admin:
+        raise HTTPException(401, "Super admin not found")
+
+    aishe = super_admin.get("university", {}).get("aishe_code")
+    if not aishe:
+        raise HTTPException(400, "AISHE code not linked")
+
+    try:
+        with tempfile.NamedTemporaryFile(delete=False, suffix=".xlsx") as tmp:
+            shutil.copyfileobj(file.file, tmp)
+            temp_path = tmp.name
+
+        wb = load_workbook(temp_path)
         ws = wb.active
 
-        created = 0
-        updated = 0
-        skipped = 0
+        created, updated, skipped = 0, 0, 0
         errors = []
 
         for row in ws.iter_rows(min_row=2, values_only=True):
@@ -63,24 +97,26 @@ async def upload_students(file: UploadFile = File(...)):
                     name,
                     email,
                     regno,
-                    university,
                     department,
                     program,
                     batch_year,
                     admission_year,
                     admission_type
                 ) = row
-            except ValueError:
+            except Exception:
+                skipped += 1
                 errors.append(f"Invalid row format: {row}")
-                skipped += 1
                 continue
 
-            if not all([name, email, regno, university, department, program, batch_year]):
+            if not all([name, email, regno, department, program, batch_year]):
+                skipped += 1
                 errors.append(f"Missing required fields: {row}")
-                skipped += 1
                 continue
 
-            existing = await users_collection.find_one({"email": email})
+            existing = await users_collection.find_one({
+                "email": email,
+                "academic.university_aishe": aishe
+            })
 
             reset_token = generate_reset_token()
             expiry = datetime.utcnow() + timedelta(hours=24)
@@ -90,14 +126,13 @@ async def upload_students(file: UploadFile = File(...)):
                 "email": email,
                 "register_no": regno,
                 "role": "student",
-
                 "password": None,
                 "is_active": False,
                 "created_at": datetime.utcnow(),
                 "last_login": None,
 
                 "academic": {
-                    "university": university,
+                    "university_aishe": aishe,
                     "department": department,
                     "program": program,
                     "batch_year": batch_year,
@@ -138,7 +173,7 @@ async def upload_students(file: UploadFile = File(...)):
                 "achievements": [],
 
                 "meta": {
-                    "created_by": "admin",
+                    "created_by": admin_id,
                     "source": "bulk_upload",
                     "last_updated": datetime.utcnow()
                 }
@@ -160,16 +195,70 @@ async def upload_students(file: UploadFile = File(...)):
                 html=build_password_email(name, reset_token)
             )
 
-        os.remove(temp_file_path)
+        os.remove(temp_path)
 
         return {
-            "message": "Processed successfully",
+            "message": "Upload completed",
             "created": created,
             "updated": updated,
             "skipped": skipped,
-            "errors": errors
+            "errors": errors[:10]
         }
 
     except Exception as e:
-        raise HTTPException(500, f"Excel read failed: {str(e)}")
+        raise HTTPException(500, f"Excel processing failed: {str(e)}")
 
+
+# =====================================================
+# DELETE CERTIFICATE (STUDENT ONLY)
+# =====================================================
+
+@router.delete(
+    "/documents/certificate/{doc_id}",
+    dependencies=[Depends(require_student)]
+)
+async def delete_certificate_document(
+    doc_id: str,
+    identity=Depends(require_student)
+):
+    student_id_raw = identity.get("_id") or identity.get("user_id")
+    if not student_id_raw:
+        raise HTTPException(401, "Invalid token")
+
+    student_id = ObjectId(student_id_raw)
+
+    try:
+        cert_oid = ObjectId(doc_id)
+    except Exception:
+        raise HTTPException(400, "Invalid certificate id")
+
+    student = await users_collection.find_one(
+        {
+            "_id": student_id,
+            "role": "student",
+            "certifications._id": cert_oid
+        },
+        {"certifications.$": 1}
+    )
+
+    if not student:
+        raise HTTPException(404, "Certificate not found")
+
+    cert = student["certifications"][0]
+
+    # 🔒 Preserve your rule
+    if cert.get("status") != "approved":
+        raise HTTPException(403, "Only approved documents can be deleted")
+
+    if cert.get("file_id"):
+        try:
+            fs.delete(ObjectId(cert["file_id"]))
+        except Exception:
+            pass
+
+    await users_collection.update_one(
+        {"_id": student_id},
+        {"$pull": {"certifications": {"_id": cert_oid}}}
+    )
+
+    return {"message": "Certificate deleted successfully"}

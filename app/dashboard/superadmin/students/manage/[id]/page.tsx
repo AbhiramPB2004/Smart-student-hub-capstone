@@ -11,7 +11,7 @@ export default function StudentDetailPage() {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    if (!id) return; // 🔒 prevent invalid fetch
+    if (!id) return;
 
     const loadStudent = async () => {
       try {
@@ -33,35 +33,78 @@ export default function StudentDetailPage() {
   }, [id]);
 
   if (!id) {
-    return <p className="p-6 text-red-600">Invalid student ID</p>;
+    return (
+      <div className="bg-white border border-gray-200 rounded-xl p-8 text-center">
+        <p className="text-red-600">Invalid student ID</p>
+      </div>
+    );
   }
 
   if (loading) {
-    return <p className="p-6">Loading student...</p>;
+    return (
+      <div className="bg-white border border-gray-200 rounded-xl p-8 text-center">
+        <p className="text-gray-600">Loading student details...</p>
+      </div>
+    );
   }
 
   if (!student) {
-    return <p className="p-6 text-red-600">Student not found</p>;
+    return (
+      <div className="bg-white border border-gray-200 rounded-xl p-8 text-center">
+        <p className="text-red-600">Student not found</p>
+      </div>
+    );
   }
 
   return (
-    <div className="p-6 text-black">
-      <h1 className="text-2xl font-semibold mb-4 text-white">
-        {student.name}
-      </h1>
-
-      <div className="bg-white rounded-lg shadow p-6 space-y-3">
-        <p><b>Email:</b> {student.email}</p>
-        <p><b>Register No:</b> {student.register_no}</p>
-        <p><b>University:</b> {student.academic?.university}</p>
-        <p><b>Department:</b> {student.academic?.department}</p>
-        <p><b>Program:</b> {student.academic?.program}</p>
-        <p><b>Batch Year:</b> {student.academic?.batch_year}</p>
-        <p><b>Semester:</b> {student.academic?.semester ?? "Not set"}</p>
-        <p>
-          <b>Status:</b>{" "}
-          {student.is_active ? "Active" : "Inactive"}
+    <div className="space-y-6 p-4 md:p-6 bg-white min-h-screen">
+      <div>
+        <h1 className="text-xl md:text-2xl font-semibold text-gray-900">
+          {student.name}
+        </h1>
+        <p className="text-gray-600 text-sm mt-1">
+          Student Details
         </p>
+      </div>
+
+      <div className="bg-white border border-gray-200 rounded-xl p-5 md:p-6">
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div className="space-y-3">
+            <div>
+              <p className="text-xs text-gray-500 font-medium">EMAIL</p>
+              <p className="text-gray-900">{student.email}</p>
+            </div>
+            <div>
+              <p className="text-xs text-gray-500 font-medium">REGISTER NUMBER</p>
+              <p className="text-gray-900">{student.register_no}</p>
+            </div>
+            <div>
+              <p className="text-xs text-gray-500 font-medium">BATCH YEAR</p>
+              <p className="text-gray-900">{student.academic?.batch_year || "Not set"}</p>
+            </div>
+          </div>
+          
+          <div className="space-y-3">
+            <div>
+              <p className="text-xs text-gray-500 font-medium">DEPARTMENT</p>
+              <p className="text-gray-900">{student.academic?.department || "Not set"}</p>
+            </div>
+            <div>
+              <p className="text-xs text-gray-500 font-medium">PROGRAM</p>
+              <p className="text-gray-900">{student.academic?.program || "Not set"}</p>
+            </div>
+            <div>
+              <p className="text-xs text-gray-500 font-medium">STATUS</p>
+              <span className={`px-2 py-1 rounded text-xs font-medium ${
+                student.is_active
+                  ? "bg-green-100 text-green-700"
+                  : "bg-red-100 text-red-700"
+              }`}>
+                {student.is_active ? "Active" : "Inactive"}
+              </span>
+            </div>
+          </div>
+        </div>
       </div>
     </div>
   );

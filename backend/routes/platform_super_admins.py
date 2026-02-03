@@ -1,9 +1,14 @@
-from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi import APIRouter, HTTPException, Query , Depends
 from datetime import datetime, timedelta
 from bson import ObjectId
+from typing import Optional
+from core.guards import require_platform_admin
+from db.collections import (
+    super_admins_collection,
+    super_admin_requests_collection,
+    complaints_collection
+)
 from schemas.platform_super_admins import SuperAdminRequest
-from db.collections import super_admins_collection
-from db.collections import super_admin_requests_collection , complaints_collection
 from schemas.super_admin_schema import (
     CreateSuperAdminRequest,
     UniversityVerificationRequest
@@ -12,20 +17,50 @@ from core.guards import require_platform_admin, require_super_admin
 from services.token_service import generate_reset_token
 from services.email_service import send_email
 from services.email_templates import build_password_email
-from typing import Optional
 
 router = APIRouter(
     prefix="/platform/super-admins",
     tags=["Platform – Super Admins"]
 )
 
+# ======================================================
+# 1️⃣ PUBLIC — SUPER ADMIN REQUEST (NO AUTH)
+# ======================================================
+
+@router.post("/request")
+async def request_super_admin(data: SuperAdminRequest):
+    # ❌ prevent duplicate requests
+    if await super_admin_requests_collection.find_one({"email": data.email}):
+        raise HTTPException(400, "Request already submitted")
+
+    # ❌ prevent already approved super admin
+    if await super_admins_collection.find_one({"email": data.email}):
+        raise HTTPException(400, "Super admin already exists")
+
+    await super_admin_requests_collection.insert_one({
+        **data.dict(),
+        "status": "pending",
+        "created_at": datetime.utcnow()
+    })
+
+    return {
+        "message": (
+            "Request submitted successfully. "
+            "You will receive an email once your institution is verified."
+        )
+    }
+
+
+# ======================================================
+# 2️⃣ PLATFORM ADMIN — CREATE SUPER ADMIN DIRECTLY
+# ======================================================
+
 @router.post("")
 async def create_super_admin(
     data: CreateSuperAdminRequest,
     user=Depends(require_platform_admin)
 ):
-    existing = await super_admins_collection.find_one({"email": data.email})
-    if existing:
+    if await super_admins_collection.find_one({"email": data.email}):
         raise HTTPException(400, "Super admin already exists")
 
     reset_token = generate_reset_token()
@@ -46,29 +81,33 @@ async def create_super_admin(
         },
 
         "verification": {
-            "status": "pending",
-            "submitted_at": None,
-            "verified_at": None,
-            "verified_by": None,
+            "status": "approved",
+            "verified_at": datetime.utcnow(),
+            "verified_by": user["user_id"],
             "remarks": None
         },
 
         "onboarding": {
             "reset_token": reset_token,
-            "reset_token_exp": expiry
+            "reset_token_exp": expiry,
+            "email_verified": False
         }
     }
 
     await super_admins_collection.insert_one(doc)
 
     await send_email(
-        to_email=data.email,
-        subject="Set up your University Admin account",
-        html=build_password_email(data.name, reset_token)
+        data.email,
+        "Activate your University Admin account",
+        build_password_email(data.name, reset_token)
     )
 
-    return {"message": "Super admin created and email sent"}
+    return {"message": "Super admin created successfully"}
 
+
+# ======================================================
+# 3️⃣ PLATFORM ADMIN — LIST SUPER ADMINS
+# ======================================================
 
 @router.get("")
 async def list_super_admins(
@@ -82,133 +121,24 @@ async def list_super_admins(
 
     if status:
         filters["verification.status"] = status
-
     if name:
         filters["name"] = {"$regex": name, "$options": "i"}
-
     if email:
         filters["email"] = {"$regex": email, "$options": "i"}
-
     if university:
         filters["university.name"] = {"$regex": university, "$options": "i"}
 
-    admins = []
+    results = []
     async for doc in super_admins_collection.find(filters, {"password": 0}):
         doc["_id"] = str(doc["_id"])
-        admins.append(doc)
+        results.append(doc)
 
-    return admins
-
-
-
-@router.get("")
-async def list_super_admins(
-    status: Optional[str] = Query(None),
-    user=Depends(require_platform_admin)
-):
-    filters = {}
-    if status:
-        filters["verification.status"] = status
-
-    admins = []
-    async for doc in super_admins_collection.find(filters, {"password": 0}):
-        doc["_id"] = str(doc["_id"])
-        admins.append(doc)
-
-    return admins
+    return results
 
 
-
-@router.patch("/{admin_id}/status")
-async def update_super_admin_status(
-    admin_id: str,
-    is_active: bool,
-    user=Depends(require_platform_admin)
-):
-    await super_admins_collection.update_one(
-        {"_id": ObjectId(admin_id)},
-        {"$set": {"is_active": is_active}}
-    )
-
-    return {"message": "Status updated"}
-
-@router.post("/{admin_id}/reset-password")
-async def reset_super_admin_password(
-    admin_id: str,
-    user=Depends(require_platform_admin)
-):
-    admin = await super_admins_collection.find_one(
-        {"_id": ObjectId(admin_id)}
-    )
-
-    if not admin:
-        raise HTTPException(404, "Super admin not found")
-
-    reset_token = generate_reset_token()
-    expiry = datetime.utcnow() + timedelta(hours=24)
-
-    await super_admins_collection.update_one(
-        {"_id": ObjectId(admin_id)},
-        {
-            "$set": {
-                "onboarding.reset_token": reset_token,
-                "onboarding.reset_token_exp": expiry,
-                "is_active": False
-            }
-        }
-    )
-
-    await send_email(
-        admin["email"],
-        "Reset your University Admin password",
-        build_password_email(admin["name"], reset_token)
-    )
-
-    return {"message": "Password reset email sent"}
-
-
-@router.post("/request")
-async def request_super_admin(data: SuperAdminRequest):
-    # Prevent duplicate requests
-    existing = await super_admin_requests_collection.find_one({
-        "email": data.email
-    })
-    if existing:
-        raise HTTPException(400, "Request already submitted")
-
-    await super_admin_requests_collection.insert_one({
-        **data.dict(),
-        "status": "pending",
-        "created_at": datetime.utcnow()
-    })
-
-    return {
-        "message": (
-            "Request submitted successfully. "
-            "You will receive an email once your institution is verified."
-        )
-    }
-
-
-
-
-@router.post("/verification")
-async def submit_university_verification(
-    data: UniversityVerificationRequest,
-    user=Depends(require_super_admin)
-):
-    await super_admins_collection.update_one(
-        {"_id": ObjectId(user["user_id"])},
-        {
-            "$set": {
-                "university": data.dict(),
-                "verification.status": "pending",
-                "verification.submitted_at": datetime.utcnow()
-            }
-        }
-    )
-
-    return {"message": "Verification submitted"}
+# ======================================================
+# 4️⃣ PLATFORM ADMIN — LIST REQUESTS
+# ======================================================
 
 @router.get("/requests")
 async def list_super_admin_requests(
@@ -219,12 +149,17 @@ async def list_super_admin_requests(
     if status:
         filters["status"] = status
 
-    requests = []
+    results = []
     async for doc in super_admin_requests_collection.find(filters):
         doc["_id"] = str(doc["_id"])
-        requests.append(doc)
+        results.append(doc)
 
-    return requests
+    return results
+
+
+# ======================================================
+# 5️⃣ PLATFORM ADMIN — APPROVE REQUEST
+# ======================================================
 
 @router.post("/requests/{request_id}/approve")
 async def approve_super_admin_request(
@@ -238,11 +173,9 @@ async def approve_super_admin_request(
     if not req:
         raise HTTPException(404, "Request not found")
 
-    # Prevent double approval
-    if req.get("status") != "pending":
+    if req["status"] != "pending":
         raise HTTPException(400, "Request already processed")
 
-    # Create super admin
     reset_token = generate_reset_token()
     expiry = datetime.utcnow() + timedelta(hours=24)
 
@@ -283,13 +216,11 @@ async def approve_super_admin_request(
         }
     })
 
-    # Mark request approved
     await super_admin_requests_collection.update_one(
         {"_id": ObjectId(request_id)},
         {"$set": {"status": "approved"}}
     )
 
-    # Send activation email
     await send_email(
         req["email"],
         "Activate your Super Admin account",
@@ -299,54 +230,28 @@ async def approve_super_admin_request(
     return {"message": "Super admin approved and email sent"}
 
 
+# ======================================================
+# 6️⃣ PLATFORM ADMIN — REJECT REQUEST
+# ======================================================
+
 @router.post("/requests/{request_id}/reject")
 async def reject_super_admin_request(
     request_id: str,
     remarks: Optional[str] = Query(None),
     user=Depends(require_platform_admin)
 ):
-    req = await super_admin_requests_collection.find_one(
-        {"_id": ObjectId(request_id)}
-    )
-
-    if not req:
-        raise HTTPException(404, "Request not found")
-
-    await super_admin_requests_collection.update_one(
+    result = await super_admin_requests_collection.update_one(
         {"_id": ObjectId(request_id)},
         {
             "$set": {
                 "status": "rejected",
-                "rejected_at": datetime.utcnow(),
-                "remarks": remarks
+                "remarks": remarks,
+                "rejected_at": datetime.utcnow()
             }
         }
     )
+
+    if result.matched_count == 0:
+        raise HTTPException(404, "Request not found")
 
     return {"message": "Request rejected"}
-
-@router.patch("/complaints/{complaint_id}")
-async def update_complaint(
-    complaint_id: str,
-    payload: dict,
-    identity=Depends(require_super_admin)
-):
-    status = payload.get("status")
-    remarks = payload.get("remarks")
-
-    if status not in ["open", "in_progress", "resolved", "rejected"]:
-        raise HTTPException(400, "Invalid status")
-
-    await complaints_collection.update_one(
-        {"_id": ObjectId(complaint_id)},
-        {
-            "$set": {
-                "status": status,
-                "remarks": remarks,
-                "updated_at": datetime.utcnow()
-            }
-        }
-    )
-
-    return {"message": "Complaint updated"}
-

@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-import DashboardShell from "@/components/DashboardShell";
+
 
 type PlatformAdmin = {
   _id: string;
@@ -124,7 +124,7 @@ export default function PlatformAdminsPage() {
   }
 
   return (
-    <DashboardShell title="Platform Admin Management">
+    <div className="">
 
       {/* Create Admin */}
       <div className="bg-white p-6 rounded-xl shadow max-w-xl mb-8">
@@ -214,6 +214,6 @@ export default function PlatformAdminsPage() {
         </table>
       </div>
 
-    </DashboardShell>
+    </div>
   );
 }

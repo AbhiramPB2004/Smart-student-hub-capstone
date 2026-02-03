@@ -85,14 +85,24 @@ async def login(user: UserLogin, response: Response):
     if not verify_password(user.password, db_user["password"]):
         raise HTTPException(401, "Invalid credentials")
 
+    # 🔐 UNIVERSITY RESOLUTION (CRITICAL)
+    university_id = None
+
+    if db_user["_source"] in ["users", "faculty", "super_admins"]:
+        university_id = (
+            db_user.get("university_id")
+            or db_user.get("academic", {}).get("university")
+        )
+
     token = create_token({
         "user_id": str(db_user["_id"]),
         "role": db_user["role"],
-        "source": db_user["_source"]   # 🔑 VERY IMPORTANT
+        "source": db_user["_source"],
+        "university_id": university_id   # ✅ FIX
     })
 
     response.set_cookie(
-        key="access_token",
+        key=COOKIE_NAME,
         value=token,
         httponly=True,
         secure=True,
@@ -101,6 +111,7 @@ async def login(user: UserLogin, response: Response):
     )
 
     return {"message": "Login successful"}
+
 
 
 
@@ -127,22 +138,21 @@ async def get_me(request: Request):
     user_id = payload.get("user_id")
     role = payload.get("role")
     source = payload.get("source")
+    university_id = payload.get("university_id")   # ✅ NEW
 
     if not user_id or not role or not source:
         raise HTTPException(401, "Invalid token")
 
-    # 🔑 Source → Collection mapping
     collection_map = {
         "platform_admins": platform_admins_collection,
         "super_admins": super_admins_collection,
-        "users": users_collection,     # admin + student
+        "users": users_collection,
         "faculty": faculty_collection
     }
 
     collection = collection_map.get(source)
     if collection is None:
         raise HTTPException(401, "Invalid user source")
-
 
     user = await collection.find_one(
         {"_id": ObjectId(user_id)},
@@ -156,18 +166,19 @@ async def get_me(request: Request):
     if not user:
         raise HTTPException(401, "User not found")
 
-    # ✅ Unified response
     return {
         "user_id": user_id,
         "role": role,
         "source": source,
+        "university_id": university_id,      # ✅ REQUIRED EVERYWHERE
         "name": user.get("name"),
         "email": user.get("email"),
-        "permissions": user.get("permissions"),              # faculty only
-        "verification_stats": user.get("verification_stats"),# faculty only
-        "academic": user.get("academic"),                    # faculty/student
-        "status": user.get("status"),                        # ✅ REQUIRED
+        "status": user.get("status"),
+        "academic": user.get("academic"),
+        "permissions": user.get("permissions"),
+        "verification_stats": user.get("verification_stats"),
     }
+
 
 
 @router.post("/set-password")

@@ -1,13 +1,15 @@
 from fastapi import APIRouter, Depends, HTTPException, Query
 from datetime import datetime, timedelta
 from bson import ObjectId
+from typing import Optional
 
-from db.collections import platform_admins_collection , complaints_collection
+from db.collections import platform_admins_collection, complaints_collection
 from core.guards import require_platform_admin
 from services.token_service import generate_reset_token
 from services.email_service import send_email
 from services.email_templates import build_password_email
 from schemas.platform_admin_schema import CreatePlatformAdminRequest
+
 
 router = APIRouter(
     prefix="/platform/admins",
@@ -15,6 +17,23 @@ router = APIRouter(
     dependencies=[Depends(require_platform_admin)]
 )
 
+# ======================================================
+# SERIALIZER (SAFE)
+# ======================================================
+
+def serialize_mongo(obj):
+    if isinstance(obj, ObjectId):
+        return str(obj)
+    if isinstance(obj, dict):
+        return {k: serialize_mongo(v) for k, v in obj.items()}
+    if isinstance(obj, list):
+        return [serialize_mongo(i) for i in obj]
+    return obj
+
+
+# ======================================================
+# PLATFORM ADMINS
+# ======================================================
 
 @router.get("")
 async def list_platform_admins():
@@ -24,8 +43,7 @@ async def list_platform_admins():
         {},
         {"password": 0, "onboarding.reset_token": 0}
     ):
-        doc["_id"] = str(doc["_id"])
-        admins.append(doc)
+        admins.append(serialize_mongo(doc))
 
     return admins
 
@@ -95,18 +113,56 @@ async def update_platform_admin_status(
     return {"message": "Status updated"}
 
 
-
+# ======================================================
+# PLATFORM ADMIN – COMPLAINTS (FULL VISIBILITY)
+# ======================================================
 
 @router.get("/complaints")
-async def all_complaints(identity=Depends(require_platform_admin)):
-    cursor = complaints_collection.find().sort("created_at", -1)
+async def list_all_complaints(
+    status: Optional[str] = Query(None),
+    category: Optional[str] = Query(None),
+    university_id: Optional[str] = Query(None),
+    search: Optional[str] = Query(None),
+    identity=Depends(require_platform_admin)
+):
+    filters = {}
+
+    if status:
+        filters["status"] = status
+
+    if category:
+        filters["category"] = category
+
+    if university_id:
+        filters["university_id"] = university_id   # string-based university id
+
+    if search:
+        filters["$or"] = [
+            {"subject": {"$regex": search, "$options": "i"}},
+            {"description": {"$regex": search, "$options": "i"}},
+            {"raised_by_name": {"$regex": search, "$options": "i"}},
+            {"raised_by_email": {"$regex": search, "$options": "i"}},
+        ]
+
+    cursor = complaints_collection.find(filters).sort("created_at", -1)
 
     results = []
     async for c in cursor:
-        c["_id"] = str(c["_id"])
-        c["raised_by"] = str(c["raised_by"])
-        results.append(c)
+        results.append(serialize_mongo({
+            "_id": c["_id"],
+            "subject": c.get("subject"),
+            "description": c.get("description"),
+            "category": c.get("category"),
+            "status": c.get("status"),
+            "remarks": c.get("remarks"),
+            "university_id": c.get("university_id"),
+            "raised_by": {
+                "id": c.get("raised_by"),
+                "name": c.get("raised_by_name"),
+                "email": c.get("raised_by_email")
+            },
+            "created_at": c.get("created_at"),
+            "updated_at": c.get("updated_at")
+        }))
 
     return results
-
-

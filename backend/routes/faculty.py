@@ -2,9 +2,11 @@ from fastapi import APIRouter, UploadFile, File, Depends, HTTPException, Query
 from datetime import datetime, timedelta
 from bson import ObjectId
 from openpyxl import load_workbook
+from utils.serializer import serialize_mongo
 import tempfile, os, shutil
 from typing import Optional
-from db.collections import faculty_collection
+
+from db.collections import faculty_collection, super_admins_collection
 from schemas.faculty_schema import FacultyExcelRow
 from core.guards import require_super_admin
 from services.token_service import generate_reset_token
@@ -18,11 +20,29 @@ router = APIRouter(
     dependencies=[Depends(require_super_admin)]
 )
 
-@router.post("/upload")
-async def upload_faculty(file: UploadFile = File(...), user=Depends(require_super_admin)):
+# ======================================================
+# UPLOAD FACULTY (UNIVERSITY ISOLATED)
+# ======================================================
 
+@router.post("/upload")
+async def upload_faculty(
+    file: UploadFile = File(...),
+    identity=Depends(require_super_admin)
+):
     if not file.filename.endswith(".xlsx"):
         raise HTTPException(400, "Only .xlsx files allowed")
+
+    # 🔐 Resolve university from super admin (JWT sub)
+    super_admin = await super_admins_collection.find_one(
+        {"_id": ObjectId(identity["_id"])},
+        {"university": 1}
+    )
+
+    if not super_admin or not super_admin.get("university"):
+        raise HTTPException(403, "Super admin university not configured")
+
+    university_id = super_admin["university"]["aishe_code"]
+    university_name = super_admin["university"].get("name")
 
     with tempfile.NamedTemporaryFile(delete=False, suffix=".xlsx") as tmp:
         shutil.copyfileobj(file.file, tmp)
@@ -53,7 +73,10 @@ async def upload_faculty(file: UploadFile = File(...), user=Depends(require_supe
             errors.append(f"Invalid row: {row}")
             continue
 
-        existing = await faculty_collection.find_one({"email": faculty.email})
+        existing = await faculty_collection.find_one({
+            "email": faculty.email,
+            "academic.university_id": university_id
+        })
 
         reset_token = generate_reset_token()
         expiry = datetime.utcnow() + timedelta(hours=24)
@@ -74,7 +97,8 @@ async def upload_faculty(file: UploadFile = File(...), user=Depends(require_supe
                 "designation": faculty.designation,
                 "employment_type": faculty.employment_type,
                 "joining_year": faculty.joining_year,
-                "university_id": user["user_id"]
+                "university_id": university_id,
+                "university_name": university_name
             },
 
             "permissions": {
@@ -97,7 +121,7 @@ async def upload_faculty(file: UploadFile = File(...), user=Depends(require_supe
             },
 
             "meta": {
-                "created_by": user["user_id"],
+                "created_by": identity["_id"],  # ✅ FIXED
                 "source": "bulk_upload",
                 "last_updated": datetime.utcnow()
             }
@@ -129,12 +153,29 @@ async def upload_faculty(file: UploadFile = File(...), user=Depends(require_supe
     }
 
 
+# ======================================================
+# LIST FACULTY (UNIVERSITY ISOLATED)
+# ======================================================
+
 @router.get("")
 async def list_faculty(
     department: Optional[str] = Query(None),
-    is_active:  Optional[bool] = Query(None)
+    is_active: Optional[bool] = Query(None),
+    identity=Depends(require_super_admin)
 ):
-    filters = {}
+    super_admin = await super_admins_collection.find_one(
+        {"_id": ObjectId(identity["_id"])},
+        {"university": 1}
+    )
+
+    if not super_admin or not super_admin.get("university"):
+        raise HTTPException(403, "Super admin university not configured")
+    print(super_admin)
+    university_id = super_admin["university"]["aishe_code"]
+
+    filters = {
+        "academic.university_id": university_id
+    }
 
     if department:
         filters["academic.department"] = department
@@ -142,17 +183,30 @@ async def list_faculty(
         filters["is_active"] = is_active
 
     faculty = []
-    async for doc in faculty_collection.find(filters, {"password": 0, "onboarding.reset_token": 0}):
+    async for doc in faculty_collection.find(
+        filters,
+        {"password": 0, "onboarding.reset_token": 0}
+    ):
         doc["_id"] = str(doc["_id"])
         faculty.append(doc)
+        
 
-    return faculty
-
+    return serialize_mongo(faculty)
 
 @router.patch("/{faculty_id}/status")
-async def update_faculty_status(faculty_id: str, is_active: bool):
+async def update_faculty_status(
+    faculty_id: str,
+    is_active: bool = Query(...),
+    identity=Depends(require_super_admin)
+):
+    
+    aishe_code = identity["university"]["aishe_code"]
+
     result = await faculty_collection.update_one(
-        {"_id": ObjectId(faculty_id)},
+        {
+            "_id": ObjectId(faculty_id),
+            "academic.university_id": aishe_code  # 🔒 ISOLATION
+        },
         {
             "$set": {
                 "is_active": is_active,
@@ -162,59 +216,58 @@ async def update_faculty_status(faculty_id: str, is_active: bool):
     )
 
     if result.matched_count == 0:
-        raise HTTPException(404, "Faculty not found")
+        raise HTTPException(
+            status_code=404,
+            detail="Faculty not found or not part of your university"
+        )
 
-    return {"message": "Faculty status updated"}
-
+    return {
+        "message": "Faculty status updated",
+        "faculty_id": faculty_id,
+        "is_active": is_active
+    }
 
 @router.post("/{faculty_id}/reset-password")
-async def reset_faculty_password(faculty_id: str):
-    faculty = await faculty_collection.find_one({"_id": ObjectId(faculty_id)})
+async def reset_faculty_password(
+    faculty_id: str,
+    identity=Depends(require_super_admin)
+):
+    aishe_code = identity["university"]["aishe_code"]
+
+    faculty = await faculty_collection.find_one(
+        {
+            "_id": ObjectId(faculty_id),
+            "academic.university_id": aishe_code  # 🔒 ISOLATION
+        }
+    )
+
     if not faculty:
-        raise HTTPException(404, "Faculty not found")
+        raise HTTPException(
+            status_code=404,
+            detail="Faculty not found or not part of your university"
+        )
 
     reset_token = generate_reset_token()
     expiry = datetime.utcnow() + timedelta(hours=24)
 
     await faculty_collection.update_one(
-        {"_id": ObjectId(faculty_id)},
+        {"_id": faculty["_id"]},
         {
             "$set": {
                 "onboarding.reset_token": reset_token,
                 "onboarding.reset_token_exp": expiry,
-                "is_active": False
-            }
-        }
-    )
-
-    await send_email(
-        faculty["email"],
-        "Reset your Faculty Account Password",
-        build_password_email(faculty["name"], reset_token)
-    )
-
-    return {"message": "Password reset email sent"}
-
-
-@router.patch("/{faculty_id}/permissions")
-async def update_faculty_permissions(
-    faculty_id: str,
-    payload: dict
-):
-    result = await faculty_collection.update_one(
-        {"_id": ObjectId(faculty_id)},
-        {
-            "$set": {
-                "permissions.can_verify_certificates": payload.get("can_verify_certificates", False),
-                "permissions.can_verify_projects": payload.get("can_verify_projects", False),
-                "permissions.can_verify_internships": payload.get("can_verify_internships", False),
+                "is_active": False,
                 "meta.last_updated": datetime.utcnow()
             }
         }
     )
 
-    if result.matched_count == 0:
-        raise HTTPException(404, "Faculty not found")
+    await send_email(
+        to_email=faculty["email"],
+        subject="Reset your Faculty Account Password",
+        html=build_password_email(faculty["name"], reset_token)
+    )
 
-    return {"message": "Permissions updated"}
-
+    return {
+        "message": "Password reset email sent to faculty"
+    }

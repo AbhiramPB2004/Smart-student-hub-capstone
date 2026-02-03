@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import Protected from "@/components/Protected";
 import DashboardShell from "@/components/DashboardShell";
+import { Search, Filter, Calendar, Eye, CheckCircle, XCircle } from "lucide-react";
 
 const API = process.env.NEXT_PUBLIC_API_URL;
 
@@ -31,14 +32,18 @@ export default function SuperAdminComplaintsPage() {
     if (category) params.append("category", category);
     if (search) params.append("search", search);
 
-    const res = await fetch(
-      `${API}/superadmin/complaints?${params.toString()}`,
-      { credentials: "include" }
-    );
-
-    const data = await res.json();
-    setComplaints(data);
-    setLoading(false);
+    try {
+      const res = await fetch(
+        `${API}/superadmin/complaints?${params.toString()}`,
+        { credentials: "include" }
+      );
+      const data = await res.json();
+      setComplaints(data);
+    } catch (error) {
+      console.error("Failed to fetch complaints:", error);
+    } finally {
+      setLoading(false);
+    }
   };
 
   useEffect(() => {
@@ -54,184 +59,219 @@ export default function SuperAdminComplaintsPage() {
         ? prompt("Remarks (optional, visible to student):")
         : null;
 
-    await fetch(`${API}/superadmin/complaints/${id}`, {
-      method: "PATCH",
-      credentials: "include",
-      headers: {
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        status: newStatus,
-        remarks,
-      }),
-    });
+    try {
+      await fetch(`${API}/superadmin/complaints/${id}`, {
+        method: "PATCH",
+        credentials: "include",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          status: newStatus,
+          remarks,
+        }),
+      });
 
-    fetchComplaints();
+      fetchComplaints();
+    } catch (error) {
+      console.error("Failed to update status:", error);
+    }
+  };
+
+  const getStatusColor = (status: string) => {
+    switch (status.toLowerCase()) {
+      case "open":
+        return "bg-red-100 text-red-700";
+      case "in_review":
+        return "bg-amber-100 text-amber-700";
+      case "resolved":
+        return "bg-green-100 text-green-700";
+      case "closed":
+        return "bg-gray-100 text-gray-700";
+      default:
+        return "bg-gray-100 text-gray-700";
+    }
+  };
+
+  const getCategoryColor = (category: string) => {
+    switch (category.toLowerCase()) {
+      case "faculty":
+        return "bg-blue-100 text-blue-700";
+      case "infrastructure":
+        return "bg-purple-100 text-purple-700";
+      case "administration":
+        return "bg-orange-100 text-orange-700";
+      default:
+        return "bg-gray-100 text-gray-700";
+    }
   };
 
   return (
     <Protected role="super_admin">
       <DashboardShell title="Student Complaints">
-
         {/* Filters */}
-        <div className="flex flex-wrap gap-4 mb-6">
-          <input
-            placeholder="Search title or description…"
-            className="border p-2 rounded w-64"
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            onKeyDown={(e) => e.key === "Enter" && fetchComplaints()}
-          />
+        <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-4 md:p-6 mb-6">
+          <div className="flex flex-col md:flex-row gap-4">
+            <div className="relative flex-1">
+              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-5 w-5" />
+              <input
+                placeholder="Search title or description…"
+                className="w-full pl-10 pr-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition"
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+                onKeyDown={(e) => e.key === "Enter" && fetchComplaints()}
+              />
+            </div>
 
-          <select
-            className="border p-2 rounded"
-            value={status}
-            onChange={(e) => setStatus(e.target.value)}
-          >
-            <option value="">All Status</option>
-            <option value="open">Open</option>
-            <option value="in_review">In Review</option>
-            <option value="resolved">Resolved</option>
-            <option value="closed">Closed</option>
-          </select>
+            <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
+              <select
+                className="px-3 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition"
+                value={status}
+                onChange={(e) => setStatus(e.target.value)}
+              >
+                <option value="">All Status</option>
+                <option value="open">Open</option>
+                <option value="in_review">In Review</option>
+                <option value="resolved">Resolved</option>
+                <option value="closed">Closed</option>
+              </select>
 
-          <select
-            className="border p-2 rounded"
-            value={category}
-            onChange={(e) => setCategory(e.target.value)}
-          >
-            <option value="">All Categories</option>
-            <option value="faculty">Faculty</option>
-            <option value="infrastructure">Infrastructure</option>
-            <option value="administration">Administration</option>
-            <option value="other">Other</option>
-          </select>
+              <select
+                className="px-3 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition"
+                value={category}
+                onChange={(e) => setCategory(e.target.value)}
+              >
+                <option value="">All Categories</option>
+                <option value="faculty">Faculty</option>
+                <option value="infrastructure">Infrastructure</option>
+                <option value="administration">Administration</option>
+                <option value="other">Other</option>
+              </select>
 
-          <button
-            onClick={fetchComplaints}
-            className="bg-blue-600 text-white px-4 py-2 rounded"
-          >
-            Apply
-          </button>
+              <button
+                onClick={fetchComplaints}
+                className="flex items-center justify-center gap-2 bg-blue-600 text-white px-4 py-2.5 rounded-lg hover:bg-blue-700 transition font-medium"
+              >
+                <Filter className="h-4 w-4" />
+                Apply
+              </button>
+            </div>
+          </div>
         </div>
 
-        {/* Table */}
-        <div className="bg-white rounded shadow overflow-x-auto">
-          <table className="w-full text-sm">
-            <thead className="bg-slate-100">
-              <tr>
-                <th className="p-3 text-left w-1/3">Complaint</th>
-                <th>Category</th>
-                <th>Status</th>
-                <th>Created</th>
-                <th className="text-center">Actions</th>
-              </tr>
-            </thead>
+        {/* Complaints List */}
+        <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
+          {loading ? (
+            <div className="p-12 text-center">
+              <div className="inline-block animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mb-4"></div>
+              <p className="text-gray-600">Loading complaints...</p>
+            </div>
+          ) : complaints.length === 0 ? (
+            <div className="p-12 text-center">
+              <div className="mx-auto w-16 h-16 bg-gray-100 rounded-full flex items-center justify-center mb-4">
+                <Eye className="h-8 w-8 text-gray-400" />
+              </div>
+              <h3 className="text-lg font-medium text-gray-900 mb-2">
+                No complaints found
+              </h3>
+              <p className="text-gray-600">
+                {status || category || search 
+                  ? "Try adjusting your filters to find what you're looking for."
+                  : "There are no complaints to display at the moment."}
+              </p>
+            </div>
+          ) : (
+            <div className="divide-y divide-gray-200">
+              {complaints.map((c) => (
+                <div key={c._id} className="p-6 hover:bg-gray-50 transition">
+                  <div className="flex flex-col lg:flex-row lg:items-start justify-between gap-4">
+                    {/* Complaint Details */}
+                    <div className="flex-1">
+                      <div className="flex items-start gap-4 mb-3">
+                        <div className="flex-1">
+                          <h3 className="text-lg font-medium text-gray-900 mb-1">
+                            {c.title}
+                          </h3>
+                          <p className="text-gray-600 text-sm leading-relaxed">
+                            {c.description}
+                          </p>
+                        </div>
+                        <div className="flex flex-col items-end gap-3">
+                          <span className={`px-3 py-1 rounded-full text-sm font-medium ${getStatusColor(c.status)}`}>
+                            {c.status.replace("_", " ")}
+                          </span>
+                          <span className={`px-3 py-1 rounded-full text-sm font-medium ${getCategoryColor(c.category)}`}>
+                            {c.category}
+                          </span>
+                        </div>
+                      </div>
 
-            <tbody>
-              {loading && (
-                <tr>
-                  <td colSpan={5} className="p-6 text-center text-gray-500">
-                    Loading complaints…
-                  </td>
-                </tr>
-              )}
-
-              {!loading &&
-                complaints.map((c) => (
-                  <tr key={c._id} className="border-t align-top">
-                    {/* Complaint */}
-                    <td className="p-3">
-                      <p className="font-medium text-black">
-                        {c.title}
-                      </p>
-                      <p className="text-xs text-gray-600 mt-1 whitespace-pre-wrap">
-                        {c.description}
-                      </p>
-
+                      {/* Remarks */}
                       {c.remarks && (
-                        <p className="mt-2 text-xs text-blue-700 bg-blue-50 p-2 rounded">
-                          <strong>Remarks:</strong> {c.remarks}
-                        </p>
+                        <div className="mt-4 p-3 bg-blue-50 border border-blue-200 rounded-lg">
+                          <p className="text-sm text-blue-800">
+                            <span className="font-medium">Remarks: </span>
+                            {c.remarks}
+                          </p>
+                        </div>
                       )}
-                    </td>
 
-                    {/* Category */}
-                    <td className="capitalize">{c.category}</td>
-
-                    {/* Status */}
-                    <td>
-                      <span
-                        className={`px-2 py-1 rounded text-xs font-medium ${
-                          c.status === "open"
-                            ? "bg-red-100 text-red-700"
-                            : c.status === "in_review"
-                            ? "bg-yellow-100 text-yellow-700"
-                            : c.status === "resolved"
-                            ? "bg-green-100 text-green-700"
-                            : "bg-gray-200 text-gray-700"
-                        }`}
-                      >
-                        {c.status.replace("_", " ")}
-                      </span>
-                    </td>
-
-                    {/* Date */}
-                    <td>
-                      {new Date(c.created_at).toLocaleDateString()}
-                    </td>
+                      {/* Date */}
+                      <div className="flex items-center gap-2 text-sm text-gray-500 mt-4">
+                        <Calendar className="h-4 w-4" />
+                        {new Date(c.created_at).toLocaleDateString('en-US', {
+                          month: 'long',
+                          day: 'numeric',
+                          year: 'numeric'
+                        })}
+                      </div>
+                    </div>
 
                     {/* Actions */}
-                    <td className="text-center space-x-2 whitespace-nowrap">
+                    <div className="flex flex-wrap gap-2 lg:flex-col">
                       {c.status !== "in_review" && (
                         <button
-                          onClick={() =>
-                            updateStatus(c._id, "in_review")
-                          }
-                          className="text-blue-600 underline"
+                          onClick={() => updateStatus(c._id, "in_review")}
+                          className="px-4 py-2 text-sm font-medium text-amber-600 bg-amber-50 hover:bg-amber-100 rounded-lg transition flex items-center gap-2"
                         >
-                          Review
+                          <Eye className="h-4 w-4" />
+                          Mark as Review
                         </button>
                       )}
 
                       {c.status !== "resolved" && (
                         <button
-                          onClick={() =>
-                            updateStatus(c._id, "resolved")
-                          }
-                          className="text-green-600 underline"
+                          onClick={() => updateStatus(c._id, "resolved")}
+                          className="px-4 py-2 text-sm font-medium text-green-600 bg-green-50 hover:bg-green-100 rounded-lg transition flex items-center gap-2"
                         >
-                          Resolve
+                          <CheckCircle className="h-4 w-4" />
+                          Mark as Resolved
                         </button>
                       )}
 
                       {c.status !== "closed" && (
                         <button
-                          onClick={() =>
-                            updateStatus(c._id, "closed")
-                          }
-                          className="text-gray-600 underline"
+                          onClick={() => updateStatus(c._id, "closed")}
+                          className="px-4 py-2 text-sm font-medium text-gray-600 bg-gray-50 hover:bg-gray-100 rounded-lg transition flex items-center gap-2"
                         >
-                          Close
+                          <XCircle className="h-4 w-4" />
+                          Mark as Closed
                         </button>
                       )}
-                    </td>
-                  </tr>
-                ))}
-
-              {!loading && complaints.length === 0 && (
-                <tr>
-                  <td
-                    colSpan={5}
-                    className="p-6 text-center text-gray-500"
-                  >
-                    No complaints found
-                  </td>
-                </tr>
-              )}
-            </tbody>
-          </table>
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
         </div>
+
+        {/* Stats */}
+        {complaints.length > 0 && !loading && (
+          <div className="mt-6 text-sm text-gray-500 text-center">
+            Showing {complaints.length} complaint{complaints.length !== 1 ? 's' : ''}
+          </div>
+        )}
       </DashboardShell>
     </Protected>
   );
