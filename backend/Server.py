@@ -17,7 +17,9 @@ from routes.Students_common import router as student_common_router
 from routes.Student_project import router as student_project_router 
 from routes.complaints import router as complaints_router   
 from routes.Complaints_platformAdmin import router as complaints_platform_router
-app = FastAPI()
+app = FastAPI(docs_url=None,        # disables /docs
+    redoc_url=None,       # disables /redoc
+    openapi_url=None )
 setup_cors(app)
 logger = setup_logger("app")
 app.include_router(auth_router)
