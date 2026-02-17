@@ -39,15 +39,24 @@ export default function LoginPage() {
   };
 
   return (
-    <div className="min-h-screen bg-white flex items-center justify-center px-4">
-      <div className="w-full max-w-sm bg-white border border-gray-200 rounded-xl p-8">
-        
+    <div
+      className="min-h-screen flex items-center justify-center px-4 bg-contain bg-cover bg-center"
+      style={{ backgroundImage: "url('/login-bg.png')" }}
+    >
+      {/* overlay */}
+      <div className="absolute inset-0" />
+
+      {/* Login Card */}
+      <div className="relative w-full max-w-sm bg-white border border-gray-200 rounded-xl p-8 shadow-lg">
+
         {/* Logo */}
         <div className="flex items-center justify-center gap-2 mb-8">
           <div className="w-8 h-8 bg-gradient-to-r from-blue-600 to-cyan-600 rounded-lg flex items-center justify-center">
             <span className="text-white font-bold text-sm">S</span>
           </div>
-          <h1 className="text-xl font-semibold text-gray-900">Smart Student Hub</h1>
+          <h1 className="text-xl font-semibold text-gray-900">
+            Smart Student Hub
+          </h1>
         </div>
 
         <h2 className="text-lg font-medium text-center text-gray-900 mb-6">
@@ -61,12 +70,12 @@ export default function LoginPage() {
         )}
 
         <form onSubmit={handleSubmit} className="space-y-4">
-          
+
           <div>
             <label className="block text-sm text-gray-700 mb-1">Email</label>
             <input
               type="email"
-              className="w-full border border-gray-300 rounded-lg px-3 py-2 text-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+              className="w-full border border-gray-300 rounded-lg px-3 py-2 text-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-500"
               value={email}
               onChange={(e) => setEmail(e.target.value)}
               required
@@ -78,7 +87,7 @@ export default function LoginPage() {
             <label className="block text-sm text-gray-700 mb-1">Password</label>
             <input
               type="password"
-              className="w-full border border-gray-300 rounded-lg px-3 py-2 text-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+              className="w-full border border-gray-300 rounded-lg px-3 py-2 text-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-500"
               value={password}
               onChange={(e) => setPassword(e.target.value)}
               required
@@ -88,7 +97,7 @@ export default function LoginPage() {
 
           <button
             type="submit"
-            className="w-full bg-blue-600 text-white py-2.5 rounded-lg font-medium hover:bg-blue-700 transition disabled:opacity-50 disabled:cursor-not-allowed"
+            className="w-full bg-blue-600 text-white py-2.5 rounded-lg font-medium hover:bg-blue-700 transition disabled:opacity-50"
             disabled={loading}
           >
             {loading ? "Signing in..." : "Login"}
